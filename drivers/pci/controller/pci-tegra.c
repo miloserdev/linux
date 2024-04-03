@@ -351,6 +351,8 @@ struct tegra_pcie {
 
 	const struct tegra_pcie_soc *soc;
 	struct dentry *debugfs;
+
+	bool force_alive;
 };
 
 static inline struct tegra_pcie *msi_to_pcie(struct tegra_msi *msi)
@@ -2118,6 +2120,8 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 	unsigned int lane = 0;
 	int err;
 
+	pcie->force_alive = of_property_read_bool(np, "nvidia,force-alive");
+
 	/* parse root ports */
 	for_each_child_of_node(np, port) {
 		struct tegra_pcie_port *rp;
@@ -2366,9 +2370,17 @@ static void tegra_pcie_enable_ports(struct tegra_pcie *pcie)
 			continue;
 
 		dev_info(dev, "link %u down, ignoring\n", port->index);
+		dev_info(dev, "trying link %u down \n", port->index);
 
-		tegra_pcie_port_disable(port);
-		tegra_pcie_port_free(port);
+		if (pcie->force_alive)
+		{
+			dev_info(dev, "link %u forced to alive \n", port->index);
+		} else
+		{
+			tegra_pcie_port_disable(port);
+			tegra_pcie_port_free(port);
+			dev_info(dev, "link %u down \n", port->index);
+		}
 	}
 
 	if (pcie->soc->has_gen2)
